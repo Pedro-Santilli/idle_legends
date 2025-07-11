@@ -65,5 +65,26 @@ struct idle_legendsTests {
         #expect(musicEnabled == true || musicEnabled == false) // Just checking it returns a boolean
         #expect(soundEffectsEnabled == true || soundEffectsEnabled == false)
     }
+    
+    @Test func demoDataCreatorWorks() async throws {
+        // Clear any existing data first
+        DemoDataCreator.clearDemoData()
+        #expect(!GameState.shared.hasSavedProgress())
+        
+        // Create demo data
+        DemoDataCreator.createDemoSaveData()
+        #expect(GameState.shared.hasSavedProgress())
+        
+        // Verify demo data was created correctly
+        if let progress = GameState.shared.loadGameProgress() {
+            #expect(progress.playerLevel == 5)
+            #expect(progress.currentLocation == "Floresta Sombria")
+            #expect(progress.questsCompleted.count == 3)
+            #expect(progress.itemsCollected.count == 3)
+        }
+        
+        // Clean up
+        DemoDataCreator.clearDemoData()
+    }
 
 }

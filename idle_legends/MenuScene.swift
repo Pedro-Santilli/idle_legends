@@ -43,6 +43,13 @@ class MenuScene: SKScene {
         
         // Start background music
         SoundManager.shared.playBackgroundMusic(named: "menu_background")
+        
+        // For demo purposes, create save data if none exists
+        #if DEBUG
+        if !GameState.shared.hasSavedProgress() {
+            DemoDataCreator.createDemoSaveData()
+        }
+        #endif
     }
     
     // MARK: - Setup Methods
@@ -58,6 +65,9 @@ class MenuScene: SKScene {
         backgroundNode?.texture = gradient
         
         self.addChild(backgroundNode!)
+        
+        // Add mystical particle effects
+        addMysticalParticles()
     }
     
     private func setupLogo() {
@@ -120,13 +130,31 @@ class MenuScene: SKScene {
         button.position = position
         button.zPosition = 2
         
-        // Add background for button
+        // Add background for button with gradient effect
         let background = SKShapeNode(rectOf: CGSize(width: 250, height: 40), cornerRadius: 8)
         background.fillColor = UIColor.systemPurple.withAlphaComponent(0.8)
         background.strokeColor = .systemGold
         background.lineWidth = 2
         background.zPosition = -1
+        
+        // Add subtle glow effect
+        let glowBackground = SKShapeNode(rectOf: CGSize(width: 252, height: 42), cornerRadius: 9)
+        glowBackground.fillColor = .clear
+        glowBackground.strokeColor = UIColor.systemGold.withAlphaComponent(0.3)
+        glowBackground.lineWidth = 4
+        glowBackground.zPosition = -2
+        
+        button.addChild(glowBackground)
         button.addChild(background)
+        
+        // Add subtle hover animation
+        let scaleUp = SKAction.scale(to: 1.02, duration: 2.0)
+        let scaleDown = SKAction.scale(to: 1.0, duration: 2.0)
+        scaleUp.timingMode = .easeInEaseOut
+        scaleDown.timingMode = .easeInEaseOut
+        
+        let breathingAction = SKAction.repeatForever(SKAction.sequence([scaleUp, scaleDown]))
+        button.run(breathingAction)
         
         return button
     }
@@ -143,6 +171,9 @@ class MenuScene: SKScene {
         tipLabel?.text = "\" \(tipLabel?.text ?? "") \""
         
         self.addChild(tipLabel!)
+        
+        // Start tip rotation timer
+        startTipRotation()
     }
     
     // MARK: - Animation Methods
@@ -240,8 +271,14 @@ class MenuScene: SKScene {
         if GameState.shared.hasSavedProgress() {
             if let progress = GameState.shared.loadGameProgress() {
                 print("Loading game - Level: \(progress.playerLevel), Location: \(progress.currentLocation)")
-                // Load the game with saved progress
-                startGameWithProgress(progress)
+                
+                // Show loading message with save data info
+                showSaveDataInfo(progress)
+                
+                // Delay before transitioning to show the info
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    self.startGameWithProgress(progress)
+                }
             } else {
                 showNoSaveDataMessage()
             }
@@ -277,6 +314,25 @@ class MenuScene: SKScene {
     
     private func getRandomTip() -> String {
         return gameplayTips.randomElement() ?? "Explore o mundo misterioso que te aguarda."
+    }
+    
+    private func startTipRotation() {
+        let waitAction = SKAction.wait(forDuration: 4.0)
+        let fadeOutAction = SKAction.fadeOut(withDuration: 0.5)
+        let changeTextAction = SKAction.run { [weak self] in
+            self?.tipLabel?.text = "\" \(self?.getRandomTip() ?? "") \""
+        }
+        let fadeInAction = SKAction.fadeIn(withDuration: 0.5)
+        
+        let tipSequence = SKAction.sequence([
+            waitAction,
+            fadeOutAction,
+            changeTextAction,
+            fadeInAction
+        ])
+        
+        let repeatAction = SKAction.repeatForever(tipSequence)
+        tipLabel?.run(repeatAction)
     }
     
     private func startGameWithProgress(_ progress: GameState.GameProgress) {
@@ -319,6 +375,64 @@ class MenuScene: SKScene {
         self.addChild(messageLabel)
     }
     
+    private func showSaveDataInfo(_ progress: GameState.GameProgress) {
+        // Play success sound
+        SoundManager.shared.playSuccessSound()
+        
+        let infoContainer = SKNode()
+        infoContainer.position = CGPoint(x: self.frame.midX, y: self.frame.midY - 200)
+        infoContainer.zPosition = 10
+        
+        // Background for info
+        let background = SKShapeNode(rectOf: CGSize(width: 300, height: 120), cornerRadius: 10)
+        background.fillColor = UIColor.black.withAlphaComponent(0.8)
+        background.strokeColor = .systemGold
+        background.lineWidth = 2
+        infoContainer.addChild(background)
+        
+        // Title
+        let titleLabel = SKLabelNode(text: "Carregando Jogo Salvo")
+        titleLabel.fontName = "HelveticaNeue-Bold"
+        titleLabel.fontSize = 16
+        titleLabel.fontColor = .systemGold
+        titleLabel.position = CGPoint(x: 0, y: 35)
+        infoContainer.addChild(titleLabel)
+        
+        // Level info
+        let levelLabel = SKLabelNode(text: "Nível: \(progress.playerLevel)")
+        levelLabel.fontName = "HelveticaNeue-Medium"
+        levelLabel.fontSize = 14
+        levelLabel.fontColor = .white
+        levelLabel.position = CGPoint(x: 0, y: 10)
+        infoContainer.addChild(levelLabel)
+        
+        // Location info
+        let locationLabel = SKLabelNode(text: "Local: \(progress.currentLocation)")
+        locationLabel.fontName = "HelveticaNeue-Medium"
+        locationLabel.fontSize = 14
+        locationLabel.fontColor = .white
+        locationLabel.position = CGPoint(x: 0, y: -10)
+        infoContainer.addChild(locationLabel)
+        
+        // Time played
+        let timeLabel = SKLabelNode(text: "Tempo jogado: \(GameState.shared.getGameDurationString(from: progress.gameTimeSeconds))")
+        timeLabel.fontName = "HelveticaNeue-Light"
+        timeLabel.fontSize = 12
+        timeLabel.fontColor = .lightGray
+        timeLabel.position = CGPoint(x: 0, y: -35)
+        infoContainer.addChild(timeLabel)
+        
+        // Animation
+        infoContainer.alpha = 0
+        let fadeIn = SKAction.fadeIn(withDuration: 0.5)
+        let wait = SKAction.wait(forDuration: 1.5)
+        let fadeOut = SKAction.fadeOut(withDuration: 0.5)
+        let remove = SKAction.removeFromParent()
+        
+        infoContainer.run(SKAction.sequence([fadeIn, wait, fadeOut, remove]))
+        self.addChild(infoContainer)
+    }
+    
     private func createGradientImage() -> UIImage {
         let size = CGSize(width: 100, height: 100)
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -331,6 +445,43 @@ class MenuScene: SKScene {
                                                start: CGPoint(x: 0, y: 0), 
                                                end: CGPoint(x: size.width, y: size.height), 
                                                options: [])
+        }
+    }
+    
+    private func addMysticalParticles() {
+        // Create floating mystical orbs
+        for i in 0..<15 {
+            let particle = SKShapeNode(circleOfRadius: CGFloat.random(in: 2...4))
+            particle.fillColor = UIColor.systemGold.withAlphaComponent(0.3)
+            particle.strokeColor = .clear
+            particle.position = CGPoint(
+                x: CGFloat.random(in: 0...self.frame.width),
+                y: CGFloat.random(in: 0...self.frame.height)
+            )
+            particle.zPosition = 0
+            
+            // Random floating animation
+            let floatUp = SKAction.moveBy(x: CGFloat.random(in: -20...20), 
+                                        y: CGFloat.random(in: 30...80), 
+                                        duration: TimeInterval.random(in: 8...15))
+            let fadeOut = SKAction.fadeOut(withDuration: 2.0)
+            let remove = SKAction.removeFromParent()
+            let resetPosition = SKAction.run {
+                particle.position = CGPoint(
+                    x: CGFloat.random(in: 0...self.frame.width),
+                    y: -20
+                )
+                particle.alpha = CGFloat.random(in: 0.1...0.4)
+            }
+            
+            let sequence = SKAction.sequence([floatUp, fadeOut, remove, resetPosition])
+            let repeatAction = SKAction.repeatForever(sequence)
+            
+            particle.run(SKAction.wait(forDuration: TimeInterval(i) * 0.5)) {
+                particle.run(repeatAction)
+            }
+            
+            self.addChild(particle)
         }
     }
 }
