@@ -14,31 +14,20 @@ class GameViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Load 'GameScene.sks' as a GKScene. This provides gameplay related content
-        // including entities and graphs.
-        if let scene = GKScene(fileNamed: "GameScene") {
+        // Create and present the MenuScene as the initial scene
+        if let view = self.view as! SKView? {
+            // Create the menu scene
+            let menuScene = MenuScene(size: view.bounds.size)
+            menuScene.scaleMode = .aspectFill
             
-            // Get the SKScene from the loaded GKScene
-            if let sceneNode = scene.rootNode as! GameScene? {
-                
-                // Copy gameplay related content over to the scene
-                sceneNode.entities = scene.entities
-                sceneNode.graphs = scene.graphs
-                
-                
-                // Set the scale mode to scale to fit the window
-                sceneNode.scaleMode = .aspectFill
-                
-                // Present the scene
-                if let view = self.view as! SKView? {
-                    view.presentScene(sceneNode)
-                    
-                    view.ignoresSiblingOrder = true
-                    
-                    view.showsFPS = true
-                    view.showsNodeCount = true
-                }
-            }
+            // Present the menu scene
+            view.presentScene(menuScene)
+            
+            view.ignoresSiblingOrder = true
+            
+            // Show FPS and node count for debugging (can be removed in production)
+            view.showsFPS = true
+            view.showsNodeCount = true
         }
     }
 
